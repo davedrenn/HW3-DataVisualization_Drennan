@@ -14,6 +14,63 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(tidycensus)
 library(socviz)
+library(lubridate)
+library(scales)
+
+census_api_key("e13d5be5cb48d927009e0dca0af99d21918d514f", overwrite = TRUE)
+
+options(scipen =999)
+
+```
+
+
+
+```{r musa_theme}
+
+theme_musa <- function(){
+  font = "sans"
+  theme_minimal() %+replace%
+    
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      
+      axis.ticks = element_blank(),
+      
+      plot.margin = margin(1,1,1,1),
+      
+      plot.title = element_text(
+        family = font,
+        size = 14,
+        face = 'bold',
+        hjust = 0,
+        vjust = 0,
+        margin = margin(5, b = 10)),
+      
+      plot.subtitle = element_text(
+        family = font,
+        size = 12,
+        hjust = 0,
+        face = "italic"),
+      
+      plot.caption = element_text(
+        family = font,
+        size = 10,
+        hjust = 1),
+      
+      axis.title.y = element_text(hjust = 1),
+      
+      axis.title = element_text(
+        family = font,
+        size = 10),
+      axis.text = element_text(
+        family = font,
+        size = 10),
+      axis.text.y = element_text(
+        margin = margin(5, b = 10),
+        vjust = 1),
+      )
+}
 
 ```
 
@@ -31,63 +88,60 @@ print(p)
 
 ```
 
-```{r musa_theme}
 
-theme_musa <- function(){
-  font = "mono"
-  theme_minimal() %+replace%
-    
-    theme(
-      panel.grid.major = element_blank(),
-      panel.grid.minor.y = element_line(
-        color = "purple",
-        linewidth = 1,
-        linetype = "dotted"
-      ),
-      
-      axis.ticks = element_blank(),
-      
-      plot.background = element_rect(
-        color = "yellow",
-        fill = "lightyellow"
-      ),
-      
-      panel.border = element_rect(
-        color = "orange",
-        fill= NA),
-      
-      plot.margin = margin(40,40,40,40),
-      
-      plot.title = element_text(
-        family = font,
-        size = 20,
-        face = 'bold',
-        hjust = 0,
-        vjust = 0,
-        color = "limegreen",
-        angle = 3,),
-      
-      plot.subtitle = element_text(
-        family = font,
-        size = 14,
-        face = "italic"),
-      
-      plot.caption = element_text(
-        family = font,
-        size = 9,
-        hjust = 1),
-      
-      axis.title = element_text(
-        family = font,
-        size = 10),
-      axis.text = element_text(
-        family = font,
-        size = 4,
-        face = "bold.italic",
-        angle = 320),
-      axis.text.x = element_text(
-        margin = margin(5, b = 10)),
-      )
-}
+```{r hw data}
+covid <- read.csv("data/covid_cases_by_date.csv")
+covid$collection_date <- as.Date(covid$collection_date)
+covid$month <- month(covid$collection_date)
+covid$year <- year(covid$collection_date)
+covid$weekday <- wday(covid$collection_date)
+```
+
+```{r plot1}
+
+ggplot(data = covid, aes(fill=test_result, y=count, x=year)) + 
+  geom_bar(position="stack", stat="identity")+
+  scale_fill_manual(values = c("#9ecae1","#fa9fb5")) +
+  labs(title = "Reported positive COVID cases have dropped significantly in 2023,",
+       subtitle = "but Philly's total test collections are a fraction of previous years",
+       fill = "Test Result",
+       x = "Year", y = "Count",
+       caption = "Source: PhillyOpenData\nDave Drennan") + 
+  coord_flip() +
+  scale_y_continuous(label=comma) +
+  theme_musa() 
+
+```
+
+```{r plot2}
+
+ggplot(data = covid, aes(x=collection_date, y=count, color=test_result)) + 
+         geom_line()+
+  scale_color_manual(values = c("#9ecae1", "#fa9fb5" )) +
+  labs(title = "Daily reported cases spiked in 2022",
+       subtitle = "Since then, the city has seen a major decline in all reporting",
+       color = "Test Result",
+       x = "Year", y = "Count",
+       caption = "Source: PhillyOpenData\nDave Drennan") +
+  scale_y_continuous(label=comma) +
+  theme_musa()+theme(panel.grid.major.y = element_line(color="grey90", size = .5)) 
+
+```
+
+
+```{r plot3}
+
+ggplot(data = covid, aes(fill=test_result, y=mean(count), x=month)) + 
+  geom_bar(position="stack", stat="identity")+
+  scale_fill_manual(values = c("#9ecae1","#fa9fb5")) +
+  labs(title = "Summer months have experienced the \nhighest averages of total and positive cases since 2020",
+       subtitle = "However, this may be a reflection of data available",
+       fill = "Test Result",
+       x = "Month", y = "Average",
+       caption = "Source: PhillyOpenData\nDave Drennan") + 
+  coord_flip() +
+  scale_y_continuous(label=comma) +
+  theme_musa() 
+
 
 ```
