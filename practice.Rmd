@@ -1,0 +1,93 @@
+---
+title: "Week6"
+author: "Dave Drennan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, inclue = FALSE}
+
+library(tidyverse)
+library(tidycensus)
+library(socviz)
+
+```
+
+```{r simple bar chart}
+
+p <- ggplot(data = gss_sm,
+            mapping = aes(x = bigregion))
+p <- p + geom_bar()+
+  labs(x = "Region",
+       y = "Count",
+       title = "Count of Survey Respondents by Region",
+       caption = "Source: General Social Survey,\n2023 | Dave Drennan")
+p <- p+theme_musa()
+print(p)
+
+```
+
+```{r musa_theme}
+
+theme_musa <- function(){
+  font = "mono"
+  theme_minimal() %+replace%
+    
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor.y = element_line(
+        color = "purple",
+        linewidth = 1,
+        linetype = "dotted"
+      ),
+      
+      axis.ticks = element_blank(),
+      
+      plot.background = element_rect(
+        color = "yellow",
+        fill = "lightyellow"
+      ),
+      
+      panel.border = element_rect(
+        color = "orange",
+        fill= NA),
+      
+      plot.margin = margin(40,40,40,40),
+      
+      plot.title = element_text(
+        family = font,
+        size = 20,
+        face = 'bold',
+        hjust = 0,
+        vjust = 0,
+        color = "limegreen",
+        angle = 3,),
+      
+      plot.subtitle = element_text(
+        family = font,
+        size = 14,
+        face = "italic"),
+      
+      plot.caption = element_text(
+        family = font,
+        size = 9,
+        hjust = 1),
+      
+      axis.title = element_text(
+        family = font,
+        size = 10),
+      axis.text = element_text(
+        family = font,
+        size = 4,
+        face = "bold.italic",
+        angle = 320),
+      axis.text.x = element_text(
+        margin = margin(5, b = 10)),
+      )
+}
+
+```
