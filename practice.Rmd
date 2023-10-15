@@ -1,31 +1,42 @@
 ---
-title: "Week6"
+title: "COVID Test Results in Philadelphia
+"
 author: "Dave Drennan"
-date: "`r Sys.Date()`"
-output: html_document
+date: "2023-10-16"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+    number_sections: yes
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-```{r libraries, inclue = FALSE}
+```{r libraries, include = FALSE}
 
 library(tidyverse)
 library(tidycensus)
 library(socviz)
 library(lubridate)
 library(scales)
-
-census_api_key("e13d5be5cb48d927009e0dca0af99d21918d514f", overwrite = TRUE)
+library(zoo)
+library(grid)
+library(gridExtra)
+library(gridtext)
+library(ggtext)
+library(dplyr)
 
 options(scipen =999)
 
 ```
 
-
-
-```{r musa_theme}
+```{r musa_theme, include = FALSE}
 
 theme_musa <- function(){
   font = "sans"
@@ -36,7 +47,8 @@ theme_musa <- function(){
       panel.grid.minor = element_blank(),
       
       axis.ticks = element_blank(),
-      
+      axis.ticks.x.bottom = element_line(color = "grey90", size = .5),
+
       plot.margin = margin(1,1,1,1),
       
       plot.title = element_text(
@@ -45,12 +57,13 @@ theme_musa <- function(){
         face = 'bold',
         hjust = 0,
         vjust = 0,
-        margin = margin(5, b = 10)),
+        margin = margin(2, b = 10)),
       
       plot.subtitle = element_text(
         family = font,
         size = 12,
         hjust = 0,
+        margin = margin(2, b = 10),
         face = "italic"),
       
       plot.caption = element_text(
@@ -58,90 +71,210 @@ theme_musa <- function(){
         size = 10,
         hjust = 1),
       
-      axis.title.y = element_text(hjust = 1),
-      
       axis.title = element_text(
         family = font,
-        size = 10),
+        size = 10,
+        margin = margin(5, b = 10)),
+      
       axis.text = element_text(
         family = font,
         size = 10),
       axis.text.y = element_text(
-        margin = margin(5, b = 10),
-        vjust = 1),
+        margin = margin(5, b = 10)),
       )
 }
 
 ```
 
-```{r simple bar chart}
+## Philly Covid Data
 
-p <- ggplot(data = gss_sm,
-            mapping = aes(x = bigregion))
-p <- p + geom_bar()+
-  labs(x = "Region",
-       y = "Count",
-       title = "Count of Survey Respondents by Region",
-       caption = "Source: General Social Survey,\n2023 | Dave Drennan")
-p <- p+theme_musa()
-print(p)
+The data used in this report comes from OpenDataPhilly, the City of Philadelphia's public data platform. The downloaded data set covers COVID-19 daily test result collections by the city - this information is split between a daily positive and daily negative count of test results.
 
-```
+Disclaimer: the data set that the City provides likely does not reflect the true volume of actual cases in Philly. The rise of at-home testing, especially in 2023, has almost certainly led to less reporting of positive or negative results as these testing kits have become widespread and accessible after the initial few years of the pandemic.   
 
-
-```{r hw data}
+```{r data}
+#read data
 covid <- read.csv("data/covid_cases_by_date.csv")
+#convert collection_date to datetime
 covid$collection_date <- as.Date(covid$collection_date)
+#sort
+covid <- covid %>%
+  arrange(ymd(covid$collection_date))
+#add month
 covid$month <- month(covid$collection_date)
+#add year
 covid$year <- year(covid$collection_date)
+#add weekday
 covid$weekday <- wday(covid$collection_date)
+#rolling average
+covid_pos <- covid %>%
+  filter(test_result == "positive") %>%
+  mutate(
+    rollingAvg_pos = rollmean(
+      count, k=7, fill=NA, align='right'
+      ) 
+  ) %>%
+  dplyr::select(objectid, rollingAvg_pos)
+
+covid_neg <- covid %>%
+  filter(test_result == "negative") %>%
+  mutate(
+    rollingAvg_neg = rollmean(
+      count, k=7, fill=NA, align='right'
+      ) 
+  ) %>%
+  dplyr::select(objectid, rollingAvg_neg)
+
+covid <- covid %>% 
+  left_join(covid_pos, covid, by="objectid") %>%
+  left_join(covid_neg, covid, by= "objectid")
+
+covid$season <- quarter(covid$collection_date, fiscal_start = 12)
+
+covid$season[covid$season == 1] <- "Winter"
+covid$season[covid$season == 2] <- "Spring"
+covid$season[covid$season == 3] <- "Summer"
+covid$season[covid$season == 4] <- "Fall"
+
+covid_pos_seasons <- covid %>%
+  filter(test_result == "positive") %>%
+  group_by(season, year) %>%
+  summarize(total = sum(count)) %>%
+  mutate(
+    season = fct_relevel(season, "Fall", after=2),
+    type = ifelse(season == "Winter", "Highlighted", "Normal"))
+
+covid_years <- 
+  covid %>%
+  group_by(year, test_result) %>%
+  summarize(total = sum(count))
+
 ```
+
+# Reviewing annual totals since the start of the pandemic
 
 ```{r plot1}
 
-ggplot(data = covid, aes(fill=test_result, y=count, x=year)) + 
-  geom_bar(position="stack", stat="identity")+
-  scale_fill_manual(values = c("#9ecae1","#fa9fb5")) +
-  labs(title = "Reported positive COVID cases have dropped significantly in 2023,",
+ggplot(data = drop_na(covid_years), aes(fill=test_result, y=total, x=as.character(year))) + 
+  geom_bar(position="stack", stat="identity", width = .7)+
+  scale_fill_manual(values = c("grey85","#fa9fb5")) +
+  labs(title = "Reported <span style='color:#fa9fb5;'>positive</span> COVID cases have dropped significantly in 2023,",
        subtitle = "but Philly's total test collections are a fraction of previous years",
        fill = "Test Result",
-       x = "Year", y = "Count",
-       caption = "Source: PhillyOpenData\nDave Drennan") + 
+       x = "", y = "Total Test Results",
+       caption = "Negative results shown in grey\nSource: PhillyOpenData") + 
   coord_flip() +
   scale_y_continuous(label=comma) +
-  theme_musa() 
+  theme_musa()+
+  theme(plot.title = element_markdown(size = 14),
+        panel.grid.major.x = element_line(color="grey90", size = .1)) +
+  theme(legend.position = "none")
 
 ```
+
+# Philly's daily COVID test results over the years
 
 ```{r plot2}
 
-ggplot(data = covid, aes(x=collection_date, y=count, color=test_result)) + 
-         geom_line()+
-  scale_color_manual(values = c("#9ecae1", "#fa9fb5" )) +
-  labs(title = "Daily reported cases spiked in 2022",
-       subtitle = "Since then, the city has seen a major decline in all reporting",
+annotations <- grobTree(
+  richtext_grob(
+  "<span style='background-color:white'>3/13/2020:<br>Nationwide emergency<br>in US declared</span>", 
+  x=.055,  y=.395, hjust=0, gp=gpar(col = "grey20", fontsize=8), box_gp = gpar(col = "white", fill = "white", alpha = .3)),
+  richtext_grob(
+  "<span style='background-color:white'>4/16/2021:<br>Phliadelphians age<br>16+ eligible for<br>COVID vaccine</span>", 
+  x=.335,  y=.80, hjust=0, gp=gpar(col = "grey20", fontsize=8), box_gp = gpar(col = "white", fill = "white", alpha = .3)),
+  richtext_grob(
+  "<span style='background-color:white'>1/03/2022:<br>Positive cases peak<br>after New Years 2022</span>", 
+  x=.52,  y=.90, hjust=0, gp=gpar(col = "grey20", fontsize=8), box_gp = gpar(col = "white", fill = "white", alpha = .3)),
+  richtext_grob(
+  "<span style='background-color:white'>5/11/2023:<br>Public health emergency<br>declared over in US</span>", 
+  x=.85,  y=.395, hjust=1, gp=gpar(col = "grey20", fontsize=8), box_gp = gpar(col = "white", fill = "white", alpha = .3)),
+   richtext_grob(
+  "<span style='background-color:white'>9/25/2023:<br>Cases on the<br>rise in Philly</span>", 
+  x=.95,  y=.6, hjust=1, gp=gpar(col = "grey20", fontsize=8), box_gp = gpar(col = "white", fill = "white", alpha = .3))
+  )
+
+ggplot() + 
+  geom_area(data = covid, aes(x=collection_date, y=rollingAvg_neg), color=NA, fill = "grey85")+
+  geom_area(data = covid, aes(x=collection_date, y=rollingAvg_pos), color=NA, fill = "#fa9fb5")+
+  geom_segment(data = covid,
+               x = ymd("2020-03-13"),
+               y = 0,
+               xend = ymd("2020-03-13"),
+               yend = 3950,
+               color = "grey40",
+               alpha = .3)+
+  geom_segment(data = covid,
+               x = ymd("2021-04-16"),
+               y = 0,
+               xend = ymd("2021-04-16"),
+               yend = 8450,
+               color = "grey40",
+               alpha = .3)+
+  geom_segment(data = covid,
+               x = ymd("2022-01-03"),
+               y = 0,
+               xend = ymd("2022-01-03"),
+               yend = 9300,
+               color = "grey40",
+               alpha = .3)+
+  geom_segment(data = covid,
+               x = ymd("2023-05-11"),
+               y = 0,
+               xend = ymd("2023-05-11"),
+               yend = 3950,
+               color = "grey40",
+               alpha = .3)+
+  geom_segment(data = covid,
+               x = ymd("2023-09-25"),
+               y = 0,
+               xend = ymd("2023-09-25"),
+               yend = 6150,
+               color = "grey40",
+               alpha = .3)+
+  labs(title = "Philly's <span style='color:#fa9fb5;'>positive</span> cases spiked around New Year's Day 2022",
+       subtitle = "Since then, the city has seen a major decline in all reporting, but cases appear\nto be rising again as of Fall 2023 following their lowest daily counts in the city",
        color = "Test Result",
-       x = "Year", y = "Count",
-       caption = "Source: PhillyOpenData\nDave Drennan") +
+       x = "", y = "Total Test Results",
+       caption = "7-day rolling average test results; negative results shown in grey\nSource: PhillyOpenData") +
   scale_y_continuous(label=comma) +
-  theme_musa()+theme(panel.grid.major.y = element_line(color="grey90", size = .5)) 
+  theme_musa() +
+  theme(panel.grid.major.y = element_line(color="grey90", size = .1),
+        axis.line.x = element_line(color = "grey90", size = .1),
+        plot.title = element_markdown(size = 14)) +
+  scale_x_date(date_labels = "%D",date_breaks = "6 months") +
+  annotation_custom(annotations)
 
 ```
 
+# Comparing total positive cases by season
 
 ```{r plot3}
+level_order <- c("Spring", "Summer", "Fall", "Winter")
 
-ggplot(data = covid, aes(fill=test_result, y=mean(count), x=month)) + 
-  geom_bar(position="stack", stat="identity")+
-  scale_fill_manual(values = c("#9ecae1","#fa9fb5")) +
-  labs(title = "Summer months have experienced the \nhighest averages of total and positive cases since 2020",
-       subtitle = "However, this may be a reflection of data available",
-       fill = "Test Result",
-       x = "Month", y = "Average",
-       caption = "Source: PhillyOpenData\nDave Drennan") + 
-  coord_flip() +
+ggplot(na.omit(covid_pos_seasons), aes(x = factor(season, level = level_order), y = total, fill = type)) + 
+  geom_boxplot(color = "grey75") +
+  labs(title = "Since 2020, <span style='color:#9ecae1;'>winter</span> months have been the most contagious,",
+       subtitle = "and with cases rising as of Fall 2022, this winter may see positive results increase",
+       x = "", y = "Positive Cases",
+       caption = "Winter months defined as December to February\nSource: PhillyOpenData") + 
+  scale_fill_manual(values=c("#9ecae1", "grey90"), guide = "none")+
   scale_y_continuous(label=comma) +
-  theme_musa() 
-
+  theme_musa() +
+  theme(plot.title = element_markdown(size = 14),
+        panel.grid.major.y = element_line(color="grey90", size = .1),
+        legend.position = "none")
 
 ```
+
+# Design decisions 
+
+Through descriptive titles, colors, and design choices, the goal of this R Markdown is to communicate the state of the pandemic in Philly, especially in Fall 2023. The analysis includes historical trends and seasonal context that's intended to indicate to the audience that there will likely be increased risk of infection this coming winter.
+
+This communication starts by providing a graph title designed as a sentence. The need for a chart legend is eliminated by using the same color for a keyword in the title to connect it with the color scheme of the graph. This use of color is more necessary in the first two charts given the lack of a legend, but is also designed as a pre-attentive attribute to focus the reader on the important data. 
+
+Connectivity is used with captions in the second chart to provide contextual events that can help explain some of the spikes and dips of positive cases over the course of the pandemic. Each caption's distance from the x-axis is also supposed to mimic the rise, fall, and slight uptick in cases to visually reinforce the argument that this analysis is trying to communicate.
+
+All three graphs have minimal use of borders, axes, and other non-data features that make charts busier. The use of color is minimized to highlight key details.
+With the use of these different gestalt and pre-attentive techniques, I believe that these charts achieve the goal of communicating the potential increased risk of catching COVID this winter.
+
