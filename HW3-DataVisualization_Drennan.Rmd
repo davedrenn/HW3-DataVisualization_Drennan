@@ -2,7 +2,7 @@
 title: "COVID Test Results in Philadelphia
 "
 author: "Dave Drennan"
-date: "2023-10-16"
+date: "2023-10-17"
 output: 
   html_document:
     toc: true
@@ -95,18 +95,30 @@ Disclaimer: the data set that the City provides likely does not reflect the true
 ```{r data}
 #read data
 covid <- read.csv("data/covid_cases_by_date.csv")
+
 #convert collection_date to datetime
 covid$collection_date <- as.Date(covid$collection_date)
+
 #sort
 covid <- covid %>%
   arrange(ymd(covid$collection_date))
+
 #add month
 covid$month <- month(covid$collection_date)
+
 #add year
 covid$year <- year(covid$collection_date)
+
 #add weekday
 covid$weekday <- wday(covid$collection_date)
-#rolling average
+
+#data split by year and test result
+covid_years <- 
+  covid %>%
+  group_by(year, test_result) %>%
+  summarize(total = sum(count))
+
+#positive result rolling average
 covid_pos <- covid %>%
   filter(test_result == "positive") %>%
   mutate(
@@ -116,6 +128,7 @@ covid_pos <- covid %>%
   ) %>%
   dplyr::select(objectid, rollingAvg_pos)
 
+#negative result rolling average
 covid_neg <- covid %>%
   filter(test_result == "negative") %>%
   mutate(
@@ -125,17 +138,21 @@ covid_neg <- covid %>%
   ) %>%
   dplyr::select(objectid, rollingAvg_neg)
 
+#rolling average join
 covid <- covid %>% 
   left_join(covid_pos, covid, by="objectid") %>%
   left_join(covid_neg, covid, by= "objectid")
 
+#splitting year into quarters starting with December
 covid$season <- quarter(covid$collection_date, fiscal_start = 12)
 
+#assigning season names to quarter values
 covid$season[covid$season == 1] <- "Winter"
 covid$season[covid$season == 2] <- "Spring"
 covid$season[covid$season == 3] <- "Summer"
 covid$season[covid$season == 4] <- "Fall"
 
+#positive results sum by season by year, with winter differentiated to change color
 covid_pos_seasons <- covid %>%
   filter(test_result == "positive") %>%
   group_by(season, year) %>%
@@ -143,11 +160,6 @@ covid_pos_seasons <- covid %>%
   mutate(
     season = fct_relevel(season, "Fall", after=2),
     type = ifelse(season == "Winter", "Highlighted", "Normal"))
-
-covid_years <- 
-  covid %>%
-  group_by(year, test_result) %>%
-  summarize(total = sum(count))
 
 ```
 
@@ -255,7 +267,7 @@ level_order <- c("Spring", "Summer", "Fall", "Winter")
 ggplot(na.omit(covid_pos_seasons), aes(x = factor(season, level = level_order), y = total, fill = type)) + 
   geom_boxplot(color = "grey75") +
   labs(title = "Since 2020, <span style='color:#9ecae1;'>winter</span> months have been the most contagious,",
-       subtitle = "and with cases rising as of Fall 2022, this winter may see positive results increase",
+       subtitle = "and with cases rising as of Fall 2022, this winter may see positive results increase\nbut to unclear numbers based on the reduction in collected results by the city",
        x = "", y = "Positive Cases",
        caption = "Winter months defined as December to February\nSource: PhillyOpenData") + 
   scale_fill_manual(values=c("#9ecae1", "grey90"), guide = "none")+
@@ -271,10 +283,11 @@ ggplot(na.omit(covid_pos_seasons), aes(x = factor(season, level = level_order), 
 
 Through descriptive titles, colors, and design choices, the goal of this R Markdown is to communicate the state of the pandemic in Philly, especially in Fall 2023. The analysis includes historical trends and seasonal context that's intended to indicate to the audience that there will likely be increased risk of infection this coming winter.
 
-This communication starts by providing a graph title designed as a sentence. The need for a chart legend is eliminated by using the same color for a keyword in the title to connect it with the color scheme of the graph. This use of color is more necessary in the first two charts given the lack of a legend, but is also designed as a pre-attentive attribute to focus the reader on the important data. 
+Charts start with a descriptive title designed as a sentence. The need for a chart legend is eliminated by using the same color for a keyword in the title to connect it with the color scheme of the chart. This use of color is more necessary in the first two charts given the lack of a legend, but is also designed as a pre-attentive attribute to focus the reader on the important data in all three charts.
 
-Connectivity is used with captions in the second chart to provide contextual events that can help explain some of the spikes and dips of positive cases over the course of the pandemic. Each caption's distance from the x-axis is also supposed to mimic the rise, fall, and slight uptick in cases to visually reinforce the argument that this analysis is trying to communicate.
+Connectivity is used through captions in the second chart to provide contextual events that can help explain some of the spikes and dips of positive cases over the course of the pandemic. Each caption's distance from the x-axis is also supposed to mimic the rise, fall, and slight uptick in cases to visually reinforce the argument that this analysis is trying to communicate.
 
-All three graphs have minimal use of borders, axes, and other non-data features that make charts busier. The use of color is minimized to highlight key details.
-With the use of these different gestalt and pre-attentive techniques, I believe that these charts achieve the goal of communicating the potential increased risk of catching COVID this winter.
+All three charts have minimal use of borders, axes, and other non-data features that make charts busier. The use of color is minimized to highlight key data.
+
+With the use of these different gestalt and pre-attentive techniques, I believe that these charts achieve the goal of communicating the potential increased risk of catching COVID in Philly this winter. Given the volume of observations, the numbers themselves may be tricky to interpret in charts 1 and 3, but the messages of collections being much lower in 2023 and winter months having the highest volume of positive cases, respectively, should still be clear given the style of the charts.
 
