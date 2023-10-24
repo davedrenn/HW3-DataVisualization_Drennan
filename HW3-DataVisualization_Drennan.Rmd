@@ -170,7 +170,7 @@ covid_pos_seasons <- covid %>%
 ggplot(data = drop_na(covid_years), aes(fill=test_result, y=total, x=as.character(year))) + 
   geom_bar(position="stack", stat="identity", width = .7)+
   scale_fill_manual(values = c("grey85","#fa9fb5")) +
-  labs(title = "Reported <span style='color:#fa9fb5;'>positive</span> COVID cases have dropped significantly in 2023,",
+  labs(title = "Reported <span style='color:#fa9fb5;'>positive</span> COVID tests have dropped significantly in 2023,",
        subtitle = "but Philly's total test collections are a fraction of previous years",
        fill = "Test Result",
        x = "", y = "Total Test Results",
@@ -196,13 +196,13 @@ annotations <- grobTree(
   "<span style='background-color:white'>4/16/2021:<br>Phliadelphians age<br>16+ eligible for<br>COVID vaccine</span>", 
   x=.335,  y=.80, hjust=0, gp=gpar(col = "grey20", fontsize=8), box_gp = gpar(col = "white", fill = "white", alpha = .3)),
   richtext_grob(
-  "<span style='background-color:white'>1/03/2022:<br>Positive cases peak<br>after New Years 2022</span>", 
+  "<span style='background-color:white'>1/03/2022:<br>Positive tests peak<br>after New Years 2022</span>", 
   x=.52,  y=.90, hjust=0, gp=gpar(col = "grey20", fontsize=8), box_gp = gpar(col = "white", fill = "white", alpha = .3)),
   richtext_grob(
   "<span style='background-color:white'>5/11/2023:<br>Public health emergency<br>declared over in US</span>", 
   x=.85,  y=.395, hjust=1, gp=gpar(col = "grey20", fontsize=8), box_gp = gpar(col = "white", fill = "white", alpha = .3)),
    richtext_grob(
-  "<span style='background-color:white'>9/25/2023:<br>Cases on the<br>rise in Philly</span>", 
+  "<span style='background-color:white'>9/25/2023:<br>Positive tests on the<br>rise in Philly</span>", 
   x=.95,  y=.6, hjust=1, gp=gpar(col = "grey20", fontsize=8), box_gp = gpar(col = "white", fill = "white", alpha = .3))
   )
 
@@ -244,8 +244,8 @@ ggplot() +
                yend = 6150,
                color = "grey40",
                alpha = .3)+
-  labs(title = "Philly's <span style='color:#fa9fb5;'>positive</span> cases spiked around New Year's Day 2022",
-       subtitle = "Since then, the city has seen a major decline in all reporting, but cases appear\nto be rising again as of Fall 2023 following their lowest daily counts in the city",
+  labs(title = "Philly's <span style='color:#fa9fb5;'>positive</span> tests spiked around New Year's Day 2022",
+       subtitle = "Since then, the city has seen a major decline in all reporting, but tests appear\nto be rising again as of Fall 2023 following their lowest daily counts in the city",
        color = "Test Result",
        x = "", y = "Total Test Results",
        caption = "7-day rolling average test results; negative results shown in grey\nSource: PhillyOpenData") +
@@ -267,8 +267,8 @@ level_order <- c("Spring", "Summer", "Fall", "Winter")
 ggplot(na.omit(covid_pos_seasons), aes(x = factor(season, level = level_order), y = total, fill = type)) + 
   geom_boxplot(color = "grey75") +
   labs(title = "Since 2020, <span style='color:#9ecae1;'>winter</span> months have been the most contagious,",
-       subtitle = "and with cases rising as of Fall 2022, this winter may see positive results increase\nbut to unclear numbers based on the reduction in collected results by the city",
-       x = "", y = "Positive Cases",
+       subtitle = "and with positive tests rising as of Fall 2022, this winter may see positive results\nincrease but to unclear numbers given the reduction in collected results by the city",
+       x = "", y = "Positive Tests",
        caption = "Winter months defined as December to February\nSource: PhillyOpenData") + 
   scale_fill_manual(values=c("#9ecae1", "grey90"), guide = "none")+
   scale_y_continuous(label=comma) +
